@@ -47,9 +47,16 @@
     <script>
         const API_URL = "https://script.google.com/macros/s/AKfycbwE8vriyD40fpe8ivS6bVpIToV7aOE8CCznURN-nmDCfWadSigAmzFFpfUZ1XEjW9U/exec";
 
-        // ✅ แก้ไข 1: ใส่ LIFF ID เพื่อเปิดใช้งานระบบ LINE
+        // ตัวแปรเช็คว่า LIFF พร้อมใช้งานหรือยัง
+        let isLiffReady = false;
+
         async function main() {
-            await liff.init({ liffId: "2010605232-NI0SvE5Q" }); 
+            try {
+                await liff.init({ liffId: "2010605232-NI0SvE5Q" }); 
+                isLiffReady = true; // โหลดสำเร็จ
+            } catch (err) {
+                console.error("LIFF Init Error:", err);
+            }
         }
         main();
 
@@ -63,10 +70,14 @@
 
             let recordedBy = "Admin";
 
-            // ✅ แก้ไข 2: เปิดระบบดึงชื่อโปรไฟล์ LINE เวลามีคนกดใช้งาน
-            if(liff.isLoggedIn()){
-                const profile = await liff.getProfile();
-                recordedBy = profile.displayName;
+            // แยกบล็อกดึงชื่อไลน์ออกมา ถ้าดึงในมือถือไม่ผ่าน จะได้ไม่พาให้สคริปต์ค้าง
+            try {
+                if(isLiffReady && liff.isLoggedIn()){
+                    const profile = await liff.getProfile();
+                    recordedBy = profile.displayName;
+                }
+            } catch (profileError) {
+                console.warn("ดึงชื่อโปรไฟล์ไม่สำเร็จ ข้ามไปใช้ชื่อ Admin แทน");
             }
 
             const sizeSelect = document.getElementById('size');
@@ -95,20 +106,16 @@
                 
                 const result = await response.json();
                 if(result.status === "success") {
-                    try {
-                        if(typeof liff !== 'undefined' && liff.id !== null && liff.isInClient()) {
-                            liff.closeWindow(); 
-                        } else {
-                            alert("บันทึกออเดอร์สำเร็จ! ยอดรวม " + payload.totalPrice + " บาท"); 
-                            document.getElementById('orderForm').reset();
-                        }
-                    } catch (liffError) {
-                        alert("บันทึกออเดอร์สำเร็จ! ยอดรวม " + payload.totalPrice + " บาท");
+                    if(isLiffReady && liff.isInClient()) {
+                        liff.closeWindow(); 
+                    } else {
+                        alert("บันทึกออเดอร์สำเร็จ! ยอดรวม " + payload.totalPrice + " บาท"); 
                         document.getElementById('orderForm').reset();
                     }
                 }
             } catch (error) {
-                alert("เกิดข้อผิดพลาดในการบันทึก: " + error);
+                // ถ้ามี Error จะแจ้งเตือนขึ้นมาบนจอเลย จะได้รู้ว่าติดที่เน็ตหรืออะไร
+                alert("เกิดข้อผิดพลาด: " + error.message);
                 console.error("Error Detail:", error);
             } finally {
                 btn.innerText = "💾 บันทึกออเดอร์";
