@@ -46,81 +46,57 @@
 
     <script>
         const API_URL = "https://script.google.com/macros/s/AKfycbwE8vriyD40fpe8ivS6bVpIToV7aOE8CCznURN-nmDCfWadSigAmzFFpfUZ1XEjW9U/exec";
+        let userDisplayName = "ไม่ระบุ";
 
-        // ตัวแปรเช็คว่า LIFF พร้อมใช้งานหรือยัง
-        let isLiffReady = false;
-
-        async function main() {
-            try {
-                await liff.init({ liffId: "2010605232-NI0SvE5Q" }); 
-                isLiffReady = true; // โหลดสำเร็จ
-            } catch (err) {
-                console.error("LIFF Init Error:", err);
+        // เริ่มโหลด LIFF แบบเบาๆ ไม่ให้ขัดจังหวะการกดบันทึก
+        liff.init({ liffId: "2010605232-NI0SvE5Q" }).then(() => {
+            if (liff.isLoggedIn()) {
+                liff.getProfile().then(profile => {
+                    userDisplayName = profile.displayName;
+                }).catch(err => console.log("ดึงชื่อไม่ได้ไม่เป็นไร"));
             }
-        }
-        main();
+        }).catch(err => console.log("LIFF Init ไม่ผ่านไม่เป็นไร"));
 
         document.getElementById('orderForm').addEventListener('submit', async (e) => {
             e.preventDefault(); 
             
             const btn = document.getElementById('submitBtn');
-            btn.innerText = "⏳ กำลังบันทึกข้อมูล...";
+            btn.innerText = "⏳ กำลังบันทึก...";
             btn.disabled = true;
-            btn.classList.replace('bg-blue-600', 'bg-gray-400');
-
-            let recordedBy = "Admin";
-
-            // แยกบล็อกดึงชื่อไลน์ออกมา ถ้าดึงในมือถือไม่ผ่าน จะได้ไม่พาให้สคริปต์ค้าง
-            try {
-                if(isLiffReady && liff.isLoggedIn()){
-                    const profile = await liff.getProfile();
-                    recordedBy = profile.displayName;
-                }
-            } catch (profileError) {
-                console.warn("ดึงชื่อโปรไฟล์ไม่สำเร็จ ข้ามไปใช้ชื่อ Admin แทน");
-            }
 
             const sizeSelect = document.getElementById('size');
-            const selectedSizeText = sizeSelect.value;
-            const pricePerUnit = parseInt(sizeSelect.options[sizeSelect.selectedIndex].getAttribute('data-price'));
-            const qty = parseInt(document.getElementById('quantity').value);
-
             const payload = {
                 customer_name: document.getElementById('name').value,
                 phone: document.getElementById('phone').value,
                 address: document.getElementById('address').value,
-                size: selectedSizeText, 
-                quantity: qty, 
-                totalPrice: pricePerUnit * qty, 
-                recorded_by: recordedBy
+                size: sizeSelect.value, 
+                quantity: parseInt(document.getElementById('quantity').value), 
+                totalPrice: parseInt(sizeSelect.options[sizeSelect.selectedIndex].getAttribute('data-price')) * parseInt(document.getElementById('quantity').value),
+                recorded_by: userDisplayName
             };
 
+            // ส่งข้อมูลออกไปเลยโดยไม่ต้องรอการดึงโปรไฟล์
             try {
                 const response = await fetch(API_URL, {
                     method: 'POST',
-                    headers: {
-                        "Content-Type": "text/plain;charset=utf-8"
-                    },
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
                     body: JSON.stringify(payload)
                 });
                 
                 const result = await response.json();
                 if(result.status === "success") {
-                    if(isLiffReady && liff.isInClient()) {
+                    if(liff.isInClient()) {
                         liff.closeWindow(); 
                     } else {
-                        alert("บันทึกออเดอร์สำเร็จ! ยอดรวม " + payload.totalPrice + " บาท"); 
+                        alert("บันทึกสำเร็จ!"); 
                         document.getElementById('orderForm').reset();
                     }
                 }
             } catch (error) {
-                // ถ้ามี Error จะแจ้งเตือนขึ้นมาบนจอเลย จะได้รู้ว่าติดที่เน็ตหรืออะไร
-                alert("เกิดข้อผิดพลาด: " + error.message);
-                console.error("Error Detail:", error);
+                alert("บันทึกไม่สำเร็จ: " + error.message);
             } finally {
                 btn.innerText = "💾 บันทึกออเดอร์";
                 btn.disabled = false;
-                btn.classList.replace('bg-gray-400', 'bg-blue-600');
             }
         });
     </script>
