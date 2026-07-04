@@ -75,7 +75,6 @@
                 recorded_by: userDisplayName
             };
 
-            // ส่งข้อมูลออกไปเลยโดยไม่ต้องรอการดึงโปรไฟล์
             try {
                 const response = await fetch(API_URL, {
                     method: 'POST',
@@ -85,16 +84,27 @@
                 
                 const result = await response.json();
                 if(result.status === "success") {
-                    if(liff.isInClient()) {
-                        liff.closeWindow(); 
-                    } else {
-                        alert("บันทึกสำเร็จ!"); 
-                        document.getElementById('orderForm').reset();
-                    }
+                    // เปลี่ยนปุ่มเป็นสีเขียว
+                    btn.innerText = "✅ บันทึกสำเร็จ!";
+                    btn.classList.replace('bg-blue-600', 'bg-green-600');
+                    
+                    // หน่วงเวลาให้เห็นข้อความก่อนเด้ง Alert
+                    setTimeout(() => {
+                        alert("บันทึกออเดอร์เรียบร้อยแล้วครับ");
+                        
+                        // เมื่อกดยืนยันจาก Alert ปุ๊บ ให้ปิดหน้าต่างทันที
+                        if(liff.isInClient()) {
+                            liff.closeWindow(); 
+                        } else {
+                            document.getElementById('orderForm').reset();
+                            btn.innerText = "💾 บันทึกออเดอร์";
+                            btn.classList.replace('bg-green-600', 'bg-blue-600');
+                            btn.disabled = false;
+                        }
+                    }, 500);
                 }
             } catch (error) {
                 alert("บันทึกไม่สำเร็จ: " + error.message);
-            } finally {
                 btn.innerText = "💾 บันทึกออเดอร์";
                 btn.disabled = false;
             }
